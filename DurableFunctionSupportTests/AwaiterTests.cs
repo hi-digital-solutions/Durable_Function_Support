@@ -34,8 +34,6 @@ namespace AwaiterTests
         {
             server.Reset();
 
-            var expected = new List<DurableFunctionStatus>();
-
             server
                 .Given(
                     Request
@@ -74,8 +72,6 @@ namespace AwaiterTests
         public async Task ReturnsWhenFunctionCompletesAsync(string status)
         {
             server.Reset();
-
-            var expected = new List<DurableFunctionStatus>();
 
             server
                 .Given(
@@ -146,8 +142,6 @@ namespace AwaiterTests
         public void TimesOutWhenDurableFunctionDoesNotComplete()
         {
             server.Reset();
-
-            var expected = new List<DurableFunctionStatus>();
 
             server
                 .Given(
