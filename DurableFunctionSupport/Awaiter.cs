@@ -14,6 +14,7 @@ namespace Hids.DurableFunctionSupport
         /// <summary>
         /// Waits for the selected Durable Function instance to finish execution (i.e., its status becomes Completed, Failed, or Terminated)
         /// </summary>
+        /// <param name="client">DurableFunctionClient for querying the function host</param>
         /// <param name="instanceId">ID of the Durable Function, probably from a GetAllFunctionStatuses call</param>
         /// <param name="maxMilliseconds">Maximum time to wait for the instance to finish before returning</param>
         public static async Task WaitForInstance(DurableFunctionClient client, string instanceId, int maxMilliseconds = 60000)
@@ -34,6 +35,7 @@ namespace Hids.DurableFunctionSupport
         /// <summary>
         /// Waits for any instance of the named Durable Function to finish execution (i.e., its status becomes Completed, Failed, or Terminated)
         /// </summary>
+        /// <param name="client">DurableFunctionClient for querying the function host</param>
         /// <param name="name">Name of the Durable Function</param>
         /// <param name="maxMilliseconds">Maximum time to wait for any instance with that name to finish before returning</param>
         public static async Task WaitForInstanceByName(DurableFunctionClient client, string name, int maxMilliseconds = 60000)
@@ -51,6 +53,31 @@ namespace Hids.DurableFunctionSupport
                 totalTime += sleepTime;
                 statuses = await client.GetAllFunctionStatuses();
             }
+        }
+
+        /// <summary>
+        /// Waits for any instance of the named Durable Function to finish execution (i.e., its status becomes Completed, Failed, or Terminated)
+        /// </summary>
+        /// <param name="client">DurableFunctionClient for querying the function host</param>
+        /// <param name="maxMilliseconds">Maximum time to wait for any instance with that name to finish before returning</param>
+        /// <returns>
+        /// ID of the Durable Function instance that was tracked
+        /// </returns>
+        public static async Task<string> WaitForFunction(DurableFunctionClient client, int maxMilliseconds = 60000)
+        {
+            var totalTime = 0;
+            var durableFunctions = await client.GetAllFunctionStatuses();
+            while (durableFunctions.Count() == 0 && totalTime < maxMilliseconds)
+            {
+                Thread.Sleep(500);
+                durableFunctions = await client.GetAllFunctionStatuses();
+                totalTime += 500;
+            }
+
+            var targetInstanceId = durableFunctions.FirstOrDefault().InstanceId;
+            await WaitForInstance(client, durableFunctions.FirstOrDefault().InstanceId);
+
+            return targetInstanceId;
         }
     }
 }

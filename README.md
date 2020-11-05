@@ -16,16 +16,18 @@ Thread.Sleep(15000);
 
 ...we have found ourselves repeatedly bumping up `Sleep` times to get the tests to pass more reliably.  But 10 seconds times 10 tests adds almost two minutes per test run.  That certainly adds up.
 
-The `Awaiter` uses the [Durable Function API](https://docs.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-http-api) to check status.  
+The `Awaiter` (via the `DurableFunctionClient`) uses the [Durable Function API](https://docs.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-http-api) to check status.
 
-(Note:  As of now, the `Awaiter` assumes you are using the Azure function emulator to [run functions locally](https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local#start), with a `localhost` URL.)
+(Note:  As of now, the `DurableFunctionClient` assumes you are using the Azure function emulator to [run functions locally](https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local#start), with a `localhost` URL.)
 
 ```csharp
-var awaiter = new Awaiter(portNumber);  // Typically 7071
-awaiter.PurgeInstanceHistoriesAsync();  // Not strictly needed, but keeps tests from interfering with each other
+var client = new DurableFunctionClient(portNumber);  // Typically 7071
+client.PurgeInstanceHistoriesAsync();  // Not strictly needed, but keeps tests from interfering with each other
+
 var response = await client.SendAsync(httpTriggerFunctionRequest);  // Trigger the function that starts the orchestrator
 
-var durableFunctions = await awaiter.GetAllFunctionStatuses();
-await awaiter.WaitForInstance(durableFunctions.FirstOrDefault().InstanceId);  // There are other ways to find the instance ID
+var instanceId = await Awaiter.WaitForFunction(client)
 // When the awaiter returns, it has either timed out or the durable function is done running
 ```
+
+Specific instances can be awaited using `WaitForInstance`, or orchestrators with a particular name can be awaited using `WaitForInstanceByName`.

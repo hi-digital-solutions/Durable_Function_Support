@@ -178,11 +178,9 @@ namespace AwaiterTests
         [InlineData("Completed")]
         [InlineData("Terminated")]
         [InlineData("Failed")]
-        public async Task WaitsForInstanceByName(string status)
+        public void WaitsForInstanceByName(string status)
         {
             server.Reset();
-
-            var expected = new List<DurableFunctionStatus>();
 
             server
                 .Given(
@@ -224,8 +222,6 @@ namespace AwaiterTests
         public async Task WaitsForInstanceByNameWhenNotInitiallyPresent(string status)
         {
             server.Reset();
-
-            var expected = new List<DurableFunctionStatus>();
 
             server
                 .Given(
@@ -289,7 +285,132 @@ namespace AwaiterTests
                 );
 
             await task;  // Allow the task to complete
-            server.LogEntries.Should().HaveCountGreaterOrEqualTo(3); // Should have made multiple requests for status
+            server.LogEntries.Should().HaveCountGreaterOrEqualTo(3);
+        }
+
+        [Fact]
+        public void WaitForFunctionReturnsRightAwayIfAnyFunctionHasCompleted()
+        {
+            server.Reset();
+
+            server
+                .Given(
+                    Request
+                        .Create()
+                        .WithPath("/runtime/webhooks/durabletask/instances")
+                        .UsingGet()
+                )
+                .RespondWith(
+                    Response
+                        .Create()
+                        .WithStatusCode(200)
+                        .WithBody(@"[
+                            {
+                                ""name"": ""MyDurableOrchestrator"",
+                                ""instanceId"": ""93581509a6898c110182fedbeef29616"",
+                                ""runtimeStatus"": ""Completed"",
+                                ""input"": [],
+                                ""customStatus"": null,
+                                ""output"": null,
+                                ""createdTime"": ""2020-11-03T21:44:45Z"",
+                                ""lastUpdatedTime"": ""2020-11-03T21:44:46Z""
+                            }
+                        ]")
+                );
+
+            var client = new DurableFunctionClient(server.Ports[0]);
+
+            Func<Task<string>> waiting = () => Awaiter.WaitForFunction(client);
+            waiting.Should().CompleteWithin(500.Milliseconds()).Which.Should().Be("93581509a6898c110182fedbeef29616");
+            server.LogEntries.Should().HaveCountGreaterOrEqualTo(1);
+        }
+
+        [Fact]
+        public async Task WaitForFunctionStillWorksIfFunctionStartsAfterWaitingStarts()
+        {
+            server.Reset();
+
+            server
+                .Given(
+                    Request
+                        .Create()
+                        .WithPath("/runtime/webhooks/durabletask/instances")
+                        .UsingGet()
+                )
+                .AtPriority(100)
+                .RespondWith(
+                    Response
+                        .Create()
+                        .WithStatusCode(200)
+                        .WithBody("[]")
+                );
+
+            var client = new DurableFunctionClient(server.Ports[0]);
+            Func<Task<string>> waiting = () => Awaiter.WaitForFunction(client);
+
+            // Intentionally do not await
+            var task = waiting.Should().CompleteWithinAsync(7000.Milliseconds());
+
+            // After 2 seconds, the function we are looking for starts up
+            Thread.Sleep(2000);
+            server
+                .Given(
+                    Request
+                        .Create()
+                        .WithPath("/runtime/webhooks/durabletask/instances")
+                        .UsingGet()
+                )
+                .AtPriority(50) // Use priorities to ensure the right response is sent
+                .RespondWith(
+                    Response
+                        .Create()
+                        .WithStatusCode(200)
+                        .WithBody(@"[
+                            {
+                                ""name"": ""MyDurableOrchestrator"",
+                                ""instanceId"": ""93581509a6898c110182fedbeef29616"",
+                                ""runtimeStatus"": ""Running"",
+                                ""input"": [],
+                                ""customStatus"": null,
+                                ""output"": null,
+                                ""createdTime"": ""2020-11-03T21:44:45Z"",
+                                ""lastUpdatedTime"": ""2020-11-03T21:44:50Z""
+                            }
+                        ]")
+                );
+
+            // After 2 more seconds, the function completes
+            Thread.Sleep(2000);
+            task.IsCompleted.Should().BeFalse();
+            server
+                .Given(
+                    Request
+                        .Create()
+                        .WithPath("/runtime/webhooks/durabletask/instances")
+                        .UsingGet()
+                )
+                .AtPriority(1) // Use priorities to ensure the right response is sent
+                .RespondWith(
+                    Response
+                        .Create()
+                        .WithStatusCode(200)
+                        .WithBody(@"[
+                            {
+                                ""name"": ""MyDurableOrchestrator"",
+                                ""instanceId"": ""93581509a6898c110182fedbeef29616"",
+                                ""runtimeStatus"": ""Completed"",
+                                ""input"": [],
+                                ""customStatus"": null,
+                                ""output"": null,
+                                ""createdTime"": ""2020-11-03T21:44:45Z"",
+                                ""lastUpdatedTime"": ""2020-11-03T21:44:50Z""
+                            }
+                        ]")
+                );
+
+            var awaitedTask = await task;  // Allow the task to complete
+            awaitedTask.Which.Should().Be("93581509a6898c110182fedbeef29616");
+            server.LogEntries.Should().HaveCountGreaterOrEqualTo(5);
         }
     }
 }
