@@ -61,9 +61,9 @@ namespace AwaiterTests
                         ]")
                 );
 
-            Awaiter awaiter = new Awaiter(server.Ports[0]);
+            var client = new DurableFunctionClient(server.Ports[0]);
 
-            Func<Task> waiting = () => awaiter.WaitForInstance("93581509a6898c110182fedbeef29616");
+            Func<Task> waiting = () => Awaiter.WaitForInstance(client, "93581509a6898c110182fedbeef29616");
             waiting.Should().CompleteWithin(1000.Milliseconds());
         }
 
@@ -103,9 +103,9 @@ namespace AwaiterTests
                         ]")
                 );
 
-            Awaiter awaiter = new Awaiter(server.Ports[0]);
+            var client = new DurableFunctionClient(server.Ports[0]);
 
-            Func<Task> waiting = () => awaiter.WaitForInstance("93581509a6898c110182fedbeef29616");
+            Func<Task> waiting = () => Awaiter.WaitForInstance(client, "93581509a6898c110182fedbeef29616");
 
             // Intentionally do not await - start WaitForInstance
             var task = waiting.Should().CompleteWithinAsync(6000.Milliseconds());
@@ -174,9 +174,9 @@ namespace AwaiterTests
                         ]")
                 );
 
-            Awaiter awaiter = new Awaiter(server.Ports[0]);
+            var client = new DurableFunctionClient(server.Ports[0]);
 
-            Func<Task> waiting = () => awaiter.WaitForInstance("93581509a6898c110182fedbeef29616", 5000);
+            Func<Task> waiting = () => Awaiter.WaitForInstance(client, "93581509a6898c110182fedbeef29616", 5000);
             waiting.Should().CompleteWithin(5500.Milliseconds());
         }
     }
