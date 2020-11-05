@@ -132,10 +132,10 @@ namespace AwaiterTests
                                 ""lastUpdatedTime"": ""2020-11-03T21:44:50Z""
                             }
                         ]")
-                ); 
+                );
 
             await task;  // Now allow the task to complete
-            server.LogEntries.Should().HaveCountGreaterOrEqualTo(4); // Should have made multiple requests for status   
+            server.LogEntries.Should().HaveCountGreaterOrEqualTo(4); // Should have made multiple requests for status
         }
 
         [Fact]
@@ -172,6 +172,124 @@ namespace AwaiterTests
 
             Func<Task> waiting = () => Awaiter.WaitForInstance(client, "93581509a6898c110182fedbeef29616", 5000);
             waiting.Should().CompleteWithin(5500.Milliseconds());
+        }
+
+        [Theory]
+        [InlineData("Completed")]
+        [InlineData("Terminated")]
+        [InlineData("Failed")]
+        public async Task WaitsForInstanceByName(string status)
+        {
+            server.Reset();
+
+            var expected = new List<DurableFunctionStatus>();
+
+            server
+                .Given(
+                    Request
+                        .Create()
+                        .WithPath("/runtime/webhooks/durabletask/instances")
+                        .UsingGet()
+                )
+                .AtPriority(100)
+                .RespondWith(
+                    Response
+                        .Create()
+                        .WithStatusCode(200)
+                        .WithBody(@"[
+                            {
+                                ""name"": ""MyDurableOrchestrator"",
+                                ""instanceId"": ""93581509a6898c110182fedbeef29616"",
+                                ""runtimeStatus"": """ + status + @""",
+                                ""input"": [],
+                                ""customStatus"": null,
+                                ""output"": null,
+                                ""createdTime"": ""2020-11-03T21:44:45Z"",
+                                ""lastUpdatedTime"": ""2020-11-03T21:44:46Z""
+                            }
+                        ]")
+                );
+
+            var client = new DurableFunctionClient(server.Ports[0]);
+
+            Func<Task> waiting = () => Awaiter.WaitForInstanceByName(client, "MyDurableOrchestrator");
+            waiting.Should().CompleteWithin(500.Milliseconds());
+            server.LogEntries.Should().HaveCount(1);
+        }
+
+        [Theory]
+        [InlineData("Completed")]
+        [InlineData("Terminated")]
+        [InlineData("Failed")]
+        public async Task WaitsForInstanceByNameWhenNotInitiallyPresent(string status)
+        {
+            server.Reset();
+
+            var expected = new List<DurableFunctionStatus>();
+
+            server
+                .Given(
+                    Request
+                        .Create()
+                        .WithPath("/runtime/webhooks/durabletask/instances")
+                        .UsingGet()
+                )
+                .AtPriority(100)
+                .RespondWith(
+                    Response
+                        .Create()
+                        .WithStatusCode(200)
+                        .WithBody(@"[
+                            {
+                                ""name"": ""NotTheDroidsYou'reLookingFor"",
+                                ""instanceId"": ""93581509a6898c110182fedbeef29616"",
+                                ""runtimeStatus"": ""Running"",
+                                ""input"": [],
+                                ""customStatus"": null,
+                                ""output"": null,
+                                ""createdTime"": ""2020-11-03T21:44:45Z"",
+                                ""lastUpdatedTime"": ""2020-11-03T21:44:46Z""
+                            }
+                        ]")
+                );
+
+            var client = new DurableFunctionClient(server.Ports[0]);
+
+            Func<Task> waiting = () => Awaiter.WaitForInstanceByName(client, "MyDurableOrchestrator");
+
+            // Intentionally do not await - start WaitForInstance
+            var task = waiting.Should().CompleteWithinAsync(6000.Milliseconds());
+
+            // After 2 seconds, the function we are looking for starts up (and finishes quickly)
+            Thread.Sleep(2000);
+            server
+                .Given(
+                    Request
+                        .Create()
+                        .WithPath("/runtime/webhooks/durabletask/instances")
+                        .UsingGet()
+                )
+                .AtPriority(1) // Use priorities to ensure the right response is sent
+                .RespondWith(
+                    Response
+                        .Create()
+                        .WithStatusCode(200)
+                        .WithBody(@"[
+                            {
+                                ""name"": ""MyDurableOrchestrator"",
+                                ""instanceId"": ""93581509a6898c110182fedbeef29616"",
+                                ""runtimeStatus"": """ + status + @""",
+                                ""input"": [],
+                                ""customStatus"": null,
+                                ""output"": null,
+                                ""createdTime"": ""2020-11-03T21:44:45Z"",
+                                ""lastUpdatedTime"": ""2020-11-03T21:44:50Z""
+                            }
+                        ]")
+                );
+
+            await task;  // Allow the task to complete
+            server.LogEntries.Should().HaveCountGreaterOrEqualTo(3); // Should have made multiple requests for status
         }
     }
 }
