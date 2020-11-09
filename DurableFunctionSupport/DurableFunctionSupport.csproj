@@ -2,6 +2,17 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <PackageId>Hids.DurableFunctionSupport</PackageId>
+    <Authors>HI Digital Solutions</Authors>
+    <Company>HI Digital Solutions</Company>
+    <Description>Library to make testing Azure Durable Functions easier</Description>
+    <RequireLicenseAcceptance>false</RequireLicenseAcceptance>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/hi-digital-solutions/Durable_Function_Support</PackageProjectUrl>
+    <copyright>Copyright © HI Digital Solutions 2020</copyright>
+    <tags>Azure Durable Functions Testing</tags>
   </PropertyGroup>
 
   <ItemGroup>
