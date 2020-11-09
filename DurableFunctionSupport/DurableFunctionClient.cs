@@ -11,7 +11,14 @@ namespace Hids.DurableFunctionSupport
     /// </summary>
     public class DurableFunctionClient
     {
+        /// <summary>
+        /// Port this client will contact the function host on
+        /// </summary>
         public int Port { get; private set; }
+
+        /// <summary>
+        /// Base URL for the function host.  Typically http://localhost:{port}
+        /// </summary>
         public string BaseUrl { get; private set; }
         private static HttpClient client;
 
